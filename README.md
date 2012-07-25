@@ -1,2 +1,2 @@
-php-oauth-consumer
+PHP OAuth Consumer
 ==================
