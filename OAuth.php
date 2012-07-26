@@ -168,13 +168,18 @@ class OAuthResponse
 	protected $code;
 	protected $header;
 	protected $data;
+	protected $types = array(
+		"text/html" => "raw",
+		"application/json" => "json"
+	);
 
-	public function __construct($raw,$code,$header,$data)
+	public function __construct($raw,$code,$header,$data,$type)
 	{
 		$thos->raw = $raw;
 		$this->code = $code;
 		$this->header = $header;
 		$this->data = $data;
+		$this->type = $type;
 	}
 
 	public function raw()
@@ -197,9 +202,14 @@ class OAuthResponse
 		return $this->data;
 	}
 
+	public function type()
+	{
+		return $this->type;
+	}
+
 	public function parse($format = null)
 	{
-		//  atom, xml, json, etc.
+		
 	}
 }
 
@@ -519,8 +529,9 @@ class OAuthCurl implements OAuthSender
 		$header_size = curl_getinfo($this->ch, CURLINFO_HEADER_SIZE);
 		$header = mb_substr($raw,0,$header_size);
 		$data = mb_substr($raw,$header_size);
+		$type = curl_getinfo($this->ch,CURLINFO_CONTENT_TYPE);
 
-		return new OAuthResponse($raw,$code,$header,$data);
+		return new OAuthResponse($raw,$code,$header,$data,$type);
 	}
 
 	/**

@@ -18,7 +18,7 @@ $response = $request->send();
 echo "Status: ".$response->code()."<br />";
 echo "Header: ",$response->header()."<br />";
 echo "Data: ".$response->data()."<br />";
-
+echo "Type: ".$response->type()."<br />";
 
 echo "DONE";
 
