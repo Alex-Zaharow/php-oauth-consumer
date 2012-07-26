@@ -3,84 +3,82 @@
 // spec: http://oauth.net/core/1.0/
 // ideas: https://github.com/juampy72/OAuth-PHP/blob/master/OAuth.php
 
-/*
-*	$consumer = new OAuthConsumer(KEY,SECRET);
-*	$params = array();
-*	$request = $consumer->request('GET','http://foo.com/oauth',$params,TOKEN);
-*	$signer = new OAuthSignMethod_Plaintext($consumer);
-*	$request->sign($signer);
-*	$response = $request->send();
-*	if ( $response->status() == 'ok' )
-*		$output = $response->raw();
-*	else die();
+###############################################################################
+#	
+#	OAUTH CONSUMER
+#	The main interface objects for the OAuth Consumer.
+#
+###############################################################################
+
+/**
+*	OAuth Consumer Object
 */
 
 class OAuthConsumer
 {
 	protected $sender;
-	public $consumer_key;
-	public $consumer_secret;
+	public $key;
+	public $secret;
 
 	public function __construct($key, $secret, $sender = null)
 	{
-		$this->consumer_key = $key;
-		$this->consumer_secret = $secret;
+		$this->key = $key;
+		$this->secret = $secret;
 		// allow custom http handler
 		if ($sender == null) $this->sender = new OAuthCurl();
 		else $this->sender = $sender;
-
 	}
-	public function request($url, $method, $params, OAuthToken $token)
+
+	public function request($method, $url, $params, OAuthToken $token = null)
 	{
-		return new OAuthRequest($this, $this->sender, $url, $method, $params, $token);
+		return new OAuthRequest($this, $this->sender, $method, $url, $params, $token);
 	}
 }
+
 
 /**
-*	Storage class for access and request tokens.
+*	OAuth Request Object
 */
-
-class OAuthToken
-{
-	protected $key;
-	protected $secret;
-
-	public function __construct($key,$secret)
-	{
-		$this->key = $key;
-		$this->secret = $secret;
-	}
-
-	public function serialize()
-	{
-		$key = OAuthHelper::url_encode($this->key);
-		$secret = OAuthHelper::url_encode($this->secret);
-		return "oauth_token=$key&oauth_token_secret=$secret";
-	}
-
-}
 
 class OAuthRequest
 {
+	protected $version = '1.0';
+
 	protected $consumer;
 	protected $sender;
-	protected $url;
 	protected $method;
+	protected $url;
 	protected $params;
 	protected $token;
 
-	public function __construct($consumer, $sender, $url, $method = 'GET', $params = array(), OAuthToken $token)
+	public function __construct($consumer, $sender, $method = 'GET', $url, $params = array(), OAuthToken $token = null)
 	{
 		$this->consumer = $consumer;
 		$this->sender = $sender;
-		$this->url = $url;
 		$this->method = $method;
-		$this->params = $params;
+		$this->url = $url;
 		$this->token = $token;
+
+		// prepare params
+		$base_params = array(
+			"oauth_version" => $this->version,
+			"oauth_timestamp" => $this->generate_timestamp(),
+			"oauth_nonce" => $this->generate_nonce(),
+			"oauth_consumer_key" => $this->consumer->key
+		);
+
+		// add token
+		if ($token) $base_params["oauth_token"] = $token->key;
+
+		// add url encoded params
+		$url_params = OAuthHelper::param_decode(parse_url($url,PHP_URL_QUERY));
+
+		$this->params = array_filter(array_merge($base_params, $url_params, $params));
 	}
 
 	public function sign(OAuthSignMethod $signer)
 	{
+		$this->params['oauth_signature_method'] = $signer->name();
 		$this->params['oauth_signature'] = $signer->generate($this->method,$this->url,$this->params,$this->token);
 	}
 
@@ -94,23 +92,130 @@ class OAuthRequest
 			$this->sign($signer);
 		}
 
-		$output = $this->sender->request($this->url,$this->method,$this->params,null);
-		return new OAuthResponse($output);
+		// prepare parameters
+		$url = OAuthHelper::url_format($this->url);
+		$params = OAuthHelper::http_prepare($this->params);
+		$header = $this->generate_header();
+
+		return $this->sender->request($this->method, $url, $params, $header);
 	}
 
+	/**
+	*	Generate the OAuth nonce, a random one time use token.
+	*
+	*	@return string The nonce.
+	*/
+
+	protected function generate_nonce()
+	{
+		//return 'kllo9940pd9333jh';
+
+		$rand = mt_rand();
+		$time = microtime();
+		return md5($rand.$time);
+	}
+
+	/**
+	*	Generate OAuth timestamp.
+	*
+	*	@return int The current UNIX timestamp.
+	*/
+
+	protected function generate_timestamp()
+	{
+		//return '1191242096';
+
+		return time();
+	}
+
+	/**
+	*	Generate OAuth authorization header
+	*
+	*	@param string $realm The authentication realm.
+	*	@return string The header.
+	*/
+
+	protected function generate_header($realm = null)
+	{
+		$headers = array();
+
+		if ($realm) $headers[] = 'Authorization: OAuth realm="'.OAuthHelper::url_encode($realm).'"';
+		else $headers[] = 'Authorization: OAuth ';
+
+		foreach ($this->params as $key => $value)
+		{
+			if (substr($key,0,5) == "oauth")
+			{
+				if (is_array($value))
+				{
+					throw new OAuthException("Arrays are not supported in headers.");
+				}
+				$headers[] = OAuthHelper::url_encode($key)."=".OAuthHelper::url_encode($value);
+			}
+		}
+
+		return implode(',',$headers);
+	}
 }
 
 /**
-*	Base Signing Method
-*
-*	Section 9:
-*	All Token requests and Protected Resources requests MUST be signed by the
-*	Consumer and verified by the Service Provider. The purpose of signing 
-*	requests is to prevent unauthorized parties from using the Consumer Key and 
-*	Tokens when making Token requests or Protected Resources requests. The 
-*	signature process encodes the Consumer Secret and Token Secret into a 
-*	verifiable value which is included with the request.
-*
+*	OAuth Response Handler Object
+*/
+
+class OAuthResponse
+{
+	protected $raw;
+	protected $code;
+	protected $header;
+	protected $data;
+
+	public function __construct($raw,$code,$header,$data)
+	{
+		$thos->raw = $raw;
+		$this->code = $code;
+		$this->header = $header;
+		$this->data = $data;
+	}
+
+	public function raw()
+	{
+		return $this->raw;
+	}
+
+	public function code()
+	{
+		return $this->code;
+	}
+
+	public function header()
+	{
+		return $this->header;
+	}
+
+	public function data()
+	{
+		return $this->data;
+	}
+
+	public function parse($format = null)
+	{
+		//  atom, xml, json, etc.
+	}
+}
+
+###############################################################################
+#	
+#	OAUTH SIGNATURE CREATION
+#	Handles the oauth_signature parameter.
+#
+#	1) HMAC SHA1
+#	2) RSA SHA1
+#	3) Plaintext
+#
+###############################################################################
+
+/**
+*	OAuth Base Signing Method
 */
 
 abstract class OAuthSignMethod
@@ -133,7 +238,7 @@ abstract class OAuthSignMethod
 	/**
 	*	Construct the signiture base string according to OAuth 1.0 Section 9.1.3.
 	*
-	*	@param string $method The request method, uppercase
+	*	@param string $method The request method
 	*	@param string $url The request url
 	*	@param array $params An array of request params.
 	*	@return string The formatted signiture base string.
@@ -142,11 +247,11 @@ abstract class OAuthSignMethod
 	protected function signature_base_string($method,$url,$params)
 	{
 		$base = array(
-			$this->normalize_http_method($method),
-			$this->normalize_http_url($url),
+			$this->normalize_http_method($method), 
+			$this->normalize_http_url($url), 
 			$this->normalize_http_params($params)
 		);
-		return OAuthHelper::url_encode($base);
+		return implode('&',OAuthHelper::url_encode($base));
 	}
 
 	/**
@@ -169,21 +274,7 @@ abstract class OAuthSignMethod
 
 	protected function normalize_http_url($url)
 	{
-		$parts = parse_url($url);
-
-		// Section 9.1.2: The url scheme and host must be lowercase and include the port number.
-		$scheme = (isset($parts['scheme'])) ? $parts['scheme'] : 'http';
-		$port = (isset($parts['port'])) ? $parts['port'] : (($scheme == 'https') ? '443' : 80);
-		$host = (isset($parts['host'])) ? strtolower($parts['host']) : '';
-		$path = (isset($parts['path'])) ? $parts['path'] : '';
-
-		// Section 9.1.2: The default ports for HTTP (80) and HTTPS (443) must not be included.
-		if (($scheme == 'http' and $port != '80') or ($scheme == 'https' and $port != '443'))
-		{
-			$host = "$host:$port";
-		}
-
-		return "$scheme://$host$path";
+		return OAuthHelper::url_format($url);
 	}
 
 	/**
@@ -203,31 +294,22 @@ abstract class OAuthSignMethod
 }
 
 /**
-*	Signing Method: HMAC SHA1
-*
-*	Section 9.2:
-*	The HMAC-SHA1 signature method uses the HMAC-SHA1 signature algorithm as
-*	defined in [RFC2104] where the Signature Base String is the text and the 
-*	key is the concatenated values (each first encoded per Parameter Encoding) 
-*	of the Consumer Secret and Token Secret, separated by an ‘&’ character 
-*	(ASCII code 38) even if empty.
-*
+*	OAuth Signing Method: HMAC SHA1
 */
 
 class OAuthSignMethod_HMAC_SHA1 extends OAuthSignMethod
 {
-	protected $name = 'HMAC_SHA1';
+	protected $name = 'HMAC-SHA1';
 
 	public function generate($method,$url,$params,$token = null)
 	{
 		$base_string = $this->signature_base_string($method,$url,$params);
 
 		$parts = array(
-			$consumer->secret,
-			($token) $token->secret : '';
+			$this->consumer->secret,
+			($token) ? $token->secret : ''
 		);
-		$parts = OAuthHelper::url_encode($parts);
-		$key = implode('&',$parts);
+		$key = implode('&',OAuthHelper::url_encode($parts));
 
 		// Section 9.2: HMAC Hash using base_string as text and concatenated
 		// consumer secret and token secret as the key.
@@ -239,35 +321,62 @@ class OAuthSignMethod_HMAC_SHA1 extends OAuthSignMethod
 }
 
 /**
-*	Signing Method: RSA SHA1
-*
-*	Section 9.3:
-*	The RSA-SHA1 signature method uses the RSASSA-PKCS1-v1_5 signature 
-*	algorithm as defined in [RFC3447] section 8.2 (more simply known as 
-*	PKCS#1), using SHA-1 as the hash function for EMSA-PKCS1-v1_5. It is 
-*	assumed that the Consumer has provided its RSA public key in a verified way
-*	to the Service Provider, in a manner which is beyond the scope of this 
-*	specification.
-*
+*	OAuth Signing Method: RSA SHA1
 */
 
 class OAuthSignMethod_RSA_SHA1 extends OAuthSignMethod
 {
-	protected $name = 'RSA_SHA1';
+	protected $name = 'RSA-SHA1';
+	protected $private_cert = null;
+	protected $private_cert_passphrase = "";
+
+	/**
+	*	Set the consumer's private key.
+	*
+	*	@param string $cert Either a PEM formatted private key or the path to one.
+	*	@param string $password The private key passphrase, if it has one.
+	*	@return void
+	*/
+
+	public function set_private_cert($cert, $passphrase = "")
+	{
+		$this->private_cert = $cert;
+		$this->private_cert_passphrase = $passphrase;
+	}
+
+	/**
+	*	Generate an RSA signature per OAuth 1.0 Section 9.3.1.
+	*
+	*	@param string $method The HTTP request method.
+	*	@param string $url The HTTP request URL.
+	* 	@param array $params An array of params.
+	*	@param OAuthToken $token The access/request token to sign with. 
+	*	@return string The signiture.
+	*/
 
 	public function generate($method,$url,$params,$token = null)
 	{
-		
+		$base_string = $this->signature_base_string($method,$url,$params);
+
+		$keyid = openssl_get_privatekey($this->private_cert, $this->private_cert_passphrase);
+
+		if ($keyid == false)
+		{
+			throw new OAuthException("RSA private key is invalid. ".openssl_error_string());
+		}
+
+		// Section 9.3.1: Sign base_string with consumer's private key.
+		if (openssl_sign($base_string, $signature, $keyid))
+		{
+			openssl_free_key($keyid);
+			return base64_encode($signature);
+		}
+		else throw new OAuthException("Unable to create RSA signature. ".openssl_error_string());
 	}
 }
 
 /**
-*	Signing Method: Plaintext
-*
-*	Section 9.4:
-*	The PLAINTEXT method does not provide any security protection and SHOULD 
-*	only be used over a secure channel such as HTTPS. It does not use the 
-*	Signature Base String.
+*	OAuth Signing Method: Plaintext
 */
 
 class OAuthSignMethod_Plaintext extends OAuthSignMethod
@@ -290,27 +399,23 @@ class OAuthSignMethod_Plaintext extends OAuthSignMethod
 			$this->consumer->secret,
 			($token) ? $token->secret : ''
 		);
-		$parts = OAuthHelper::url_encode($parts);
-		$key = implode('&',$parts);
+		$key = OAuthHelper::url_encode(implode('&',$parts));
 
 		return $key;
 	}
 }
 
-
-class OAuthResponse
-{
-	public function __construct($output);
-	public function status();
-	public function raw();
-	public function parse()
-	{
-		//  atom, xml, json, etc.
-	}
-}
+###############################################################################
+# 
+#	OAUTH SENDERS
+#	Handles the transport of OAuth data across HTTP.
+#
+###############################################################################
 
 /**
-*	Generic wrapper interface used to transmit OAuth data over HTTP.
+*	OAuth Sender Interface
+*
+*	Provides a simple interface used to transmit OAuth data over HTTP.
 */
 
 interface OAuthSender
@@ -320,12 +425,12 @@ interface OAuthSender
 	*
 	*	@param string $url The url to transport to.
 	*	@param string $method The method to use ('GET', 'POST', etc.)
-	*	@param array $params The parameters to send.
-	*	@param array $headers The headers to include when sending.
-	*	@return string The request output including response headers.
+	*	@param string $params The parameters to send.
+	*	@param string $headers The headers to include when sending.
+	*	@return OAuthResponse The sender output.
 	*/
 
-	public function request($url,$method,$params,$headers);
+	public function request($method, $url, $params = null, $header = null);
 
 	/**
 	*	Check if an error occured during transport.
@@ -337,7 +442,9 @@ interface OAuthSender
 }
 
 /**
-*	A simple curl based HTTP transport class for use by OAuth.
+*	OAuth Curl Sender
+*
+*	A simple curl based sender that impliments the OAuthSender interface.
 *
 *	This will be used by default, but can be replaced by any user defined
 *	class that implements the OAuthSender interface.
@@ -362,43 +469,58 @@ class OAuthCurl implements OAuthSender
 	*
 	*	@param string $url The url to transport to.
 	*	@param string $method The method to use ('GET', 'POST', etc.)
-	*	@param array $params The parameters to send.
-	*	@param array $headers The headers to include when sending.
-	*	@return string The request output including response headers.
+	*	@param string $params The parameters to send.
+	*	@param string $headers The headers to include when sending.
+	*	@return OAuthResponse The sender output.
 	*/
 
-	public function request($url,$method,$params,$headers)
+	public function request($method, $url, $params = null, $header = null)
 	{
 		$options = array(
 			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_HEADER => true,
-			CURLOPT_CONNECTTIMEOUT = 10,
-			CURLOPT_TIMEOUT = 15
+			CURLOPT_FAILONERROR => true,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_HEADER => true
 		);
-		$param_string = OAuthHelper:http_prepare($params);
 
-		switch($this->method)
+		switch($method)
 		{
+			case "GET":
+				$options[CURLOPT_URL] = "$url?$params";
+				$options[CURLOPT_HTTPHEADER] = array($header);
+				$options[CURLOPT_HTTPGET] = true;
+				break;
+			case "POST":
+				$options[CURLOPT_URL] = $url;
+				$options[CURLOPT_HTTPHEADER] = array($header);
+				$options[CURLOPT_POST] = true;
+				$options[CURLOPT_POSTFIELDS] = $params;
+				break;
 			case "PUT":
-				$options["CURLOPT_URL"] = $url;
-				$options["CURLOPT_CUSTOMREQUEST"] = "PUT";
-				$options["CURLOPT_POSTFIELDS"] = $param_string;
+				$options[CURLOPT_URL] = $url;
+				$options[CURLOPT_HTTPHEADER] = array($header);
+				$options[CURLOPT_CUSTOMREQUEST] = "PUT";
+				$options[CURLOPT_POSTFIELDS] = $params;
 				break;
 			case "DELETE":
-				$options["CURLOPT_URL"] = "$url?$param_string";
-				$options["CURLOPT_CUSTOMREQUEST"] = "DELETE";
-			case "POST":
-				$options["CURLOPT_URL"] = $url;
-				$options["CURLOPT_POST"] = true;
-				$options["CURLOPT_POSTFIELDS"] = $param_string;
+				$options[CURLOPT_URL] = "$url?$params";
+				$options[CURLOPT_HTTPHEADER] = array($header);
+				$options[CURLOPT_CUSTOMREQUEST] = "DELETE";
 				break;
 			default:
-				$options["CURLOPT_URL"] = "$url?$param_string";
-				$options["CURLOPT_HTTPGET"] = true;
+				throw new OAuthException("Invalid HTTP method '$method'.");
 		}
 		curl_setopt_array($this->ch,$options);
 
-		return curl_exec($this->ch);
+		$raw = curl_exec($this->ch);
+
+		// parse output
+		$code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+		$header_size = curl_getinfo($this->ch, CURLINFO_HEADER_SIZE);
+		$header = mb_substr($raw,0,$header_size);
+		$data = mb_substr($raw,$header_size);
+
+		return new OAuthResponse($raw,$code,$header,$data);
 	}
 
 	/**
@@ -415,13 +537,49 @@ class OAuthCurl implements OAuthSender
 		}
 		else return '';
 	}
+}
+
+###############################################################################
+# 
+#	OAUTH UTILITIES AND HELPERS
+#	Additional utilities, helpers, and storage objects.
+#
+###############################################################################
+
+/**
+*	OAuth access/request token storage object
+*/
+
+class OAuthToken
+{
+	public $key;
+	public $secret;
+
+	public function __construct($key,$secret)
+	{
+		$this->key = $key;
+		$this->secret = $secret;
+	}
+
+	public function serialize()
+	{
+		$key = OAuthHelper::url_encode($this->key);
+		$secret = OAuthHelper::url_encode($this->secret);
+		return "oauth_token=$key&oauth_token_secret=$secret";
+	}
+}
+
+/**
+*	OAuth Exception Object
+*/
+
+class OAuthException extends Exception
+{
 
 }
 
 /**
-*	Additional functions required by OAuth.
-*
-*	All methods should be static.
+*	OAuth Helpes
 */
 
 class OAuthHelper
@@ -429,7 +587,7 @@ class OAuthHelper
 	/**
 	*	Encode values for HTTP url transport per rfc3986.
 	*
-	*	@param varies The value or array to be encoded.
+	*	@param varies $input The value or array to be encoded.
 	*	@return string The rfc3986 encoded value or array.
 	*/
 
@@ -450,6 +608,53 @@ class OAuthHelper
 			return str_replace('+',' ',str_replace('%7e','~',$input));
 		}
 		else return '';
+	}
+
+	/**
+	*	Decode rfc3986 encoded HTTP values.
+	*
+	*	@param string $input The value to be decoded.
+	*	@return string The decoded value.
+	*/
+
+	static public function url_decode($input)
+	{
+		return urldecode($input);
+	}
+
+	/**
+	*	Decodes parameters from an HTTP URL query string
+	*
+	*	@param string $input The query string to be decoded.
+	*	@return aray The decoded parameters as an associative array.
+	*/
+
+	static public function param_decode($input)
+	{
+		$parts = explode('&',$input);
+
+		$params = array();
+		foreach($parts as $part)
+		{
+			$split = explode('=',$part,2);
+			$key = OAuthHelper::url_decode($split[0]);
+			$value = isset($split[1]) ? OAuthHelper::url_decode($split[1]) : '';
+
+			if (isset($params[$key]))
+			{
+				// this key has already been added, store additional values
+				if ( is_scalar($params[$key]))
+				{
+					// first duplicated value for this key
+					$params[$key] = array($params[$key]);
+				}
+				$params[$key][] = $value;
+			}
+
+			$params[$key] = $value;
+		}
+
+		return $params;
 	}
 
 	/**
@@ -491,14 +696,30 @@ class OAuthHelper
 		return implode('&',$output);
 	}
 
+	/**
+	*	Clean up and correctly format a URL for transport.
+	*
+	*	@param string $url The url to be formatted.
+	*	@return string The formatted url.
+	*/
+
+	static public function url_format($url)
+	{
+		$parts = parse_url($url);
+
+		// Section 9.1.2: The url scheme and host must be lowercase and include the port number.
+		$scheme = (isset($parts['scheme'])) ? $parts['scheme'] : 'http';
+		$port = (isset($parts['port'])) ? $parts['port'] : (($scheme == 'https') ? '443' : 80);
+		$host = (isset($parts['host'])) ? strtolower($parts['host']) : '';
+		$path = (isset($parts['path'])) ? $parts['path'] : '';
+
+		// Section 9.1.2: The default ports for HTTP (80) and HTTPS (443) must NOT be included.
+		if (($scheme == 'http' and $port != '80') or ($scheme == 'https' and $port != '443'))
+		{
+			$host = "$host:$port";
+		}
+
+		return "$scheme://$host$path";
+	}
+
 }
-
-
-/////////////////////////////////////////////////
-
-class OAuthException extends Exception
-{
-
-}
-
-///////////////////////////////
