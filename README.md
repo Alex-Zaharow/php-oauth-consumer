@@ -30,6 +30,7 @@ legged OAuth calls, you simply need to impliment a callback function in your
 own code to obtain access and request tokens from the provider.
 
 ```php
+<?php
 $consumer_key = '123456';
 $consumer_secret = 'abcdefghijklmnop';
 $consumer = new OAuthConsumer($consumer_key,$consumer_secret);
@@ -59,6 +60,7 @@ $response = $request->send();
 // headers, and data that were returned by the OAuth Provider.
 echo $request->code();
 echo $request->data();
+?>
 ```
 
 Extending
@@ -72,21 +74,23 @@ server. A basic curl based one is provided and used by default. To replace with
 your own, simply create a new class that implements the OAuthSender interface
 and pass it to the consumer.
 
-```
+```php
+<?php
 class MySender implements OAuthSender
 {
 	// my code
 }
 $sender = new MySender();
 $consumer = new OAuthConsumer('consumer_key','consumer_secret',$sender);
-...
+?>
 ```
 
 The signer generates the oauth_signature parameter and secures communication
 with the OAuth Server. The three main 1.0 spec methods are provided, but you 
 can use your own by extending the OAuthSignMethod class.
 
-```
+```php
+<?php
 class MySigner extends OAuthSignMethod
 {
 	// my code
@@ -95,7 +99,7 @@ $consumer = new OAuthConsumer('consumer_key','consumer_secret');
 $signer = new MySigner($consumer);
 $consumer->request('GET','http://example.com/oauth',$params,null);
 $request->sign($signer);
-...
+?>
 ```
 
 Legal
