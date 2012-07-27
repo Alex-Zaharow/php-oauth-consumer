@@ -29,7 +29,7 @@ The OAuthConsumer is easy to use for two legged OAuth calls. To support three
 legged OAuth calls, you simply need to impliment a callback function in your 
 own code to obtain access and request tokens from the provider.
 
-```
+```php
 $consumer_key = '123456';
 $consumer_secret = 'abcdefghijklmnop';
 $consumer = new OAuthConsumer($consumer_key,$consumer_secret);
