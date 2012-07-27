@@ -1,7 +1,9 @@
 <?php
 
-// spec: http://oauth.net/core/1.0/
-// ideas: https://github.com/juampy72/OAuth-PHP/blob/master/OAuth.php
+/*
+*	Compliant with OAuth 1.0 Spec
+*	https://tools.ietf.org/html/rfc5849
+*/
 
 ###############################################################################
 #	
@@ -108,8 +110,6 @@ class OAuthRequest
 
 	protected function generate_nonce()
 	{
-		//return 'kllo9940pd9333jh';
-
 		$rand = mt_rand();
 		$time = microtime();
 		return md5($rand.$time);
@@ -123,8 +123,6 @@ class OAuthRequest
 
 	protected function generate_timestamp()
 	{
-		//return '1191242096';
-
 		return time();
 	}
 
@@ -160,6 +158,8 @@ class OAuthRequest
 
 /**
 *	OAuth Response Handler Object
+*
+*	Not much to see here.
 */
 
 class OAuthResponse
@@ -168,10 +168,6 @@ class OAuthResponse
 	protected $code;
 	protected $header;
 	protected $data;
-	protected $types = array(
-		"text/html" => "raw",
-		"application/json" => "json"
-	);
 
 	public function __construct($raw,$code,$header,$data,$type)
 	{
@@ -205,11 +201,6 @@ class OAuthResponse
 	public function type()
 	{
 		return $this->type;
-	}
-
-	public function parse($format = null)
-	{
-		
 	}
 }
 
@@ -478,7 +469,8 @@ class OAuthCurl implements OAuthSender
 	*	Send a new HTTP request.
 	*
 	*	@param string $url The url to transport to.
-	*	@param string $method The method to use ('GET', 'POST', etc.)
+	*	@param string $method The method to use ('GET' or 'POST')
+	*				  PUT and DELETE are a work in progress...
 	*	@param string $params The parameters to send.
 	*	@param string $headers The headers to include when sending.
 	*	@return OAuthResponse The sender output.
@@ -559,6 +551,8 @@ class OAuthCurl implements OAuthSender
 
 /**
 *	OAuth access/request token storage object
+*
+*	Not much to see here.
 */
 
 class OAuthToken
@@ -582,6 +576,8 @@ class OAuthToken
 
 /**
 *	OAuth Exception Object
+*
+*	Not much to see here.
 */
 
 class OAuthException extends Exception
