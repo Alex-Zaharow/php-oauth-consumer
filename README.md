@@ -51,8 +51,8 @@ $params = array(
 	'size' => '1000'
 );
 
-// If you already have an access or request token, pass it as well otherwise, 
-// just pass null.
+// If you already have an access or request token, pass it as well. Otherwise, 
+// just omit this parameter or pass null.
 $token = null;
 $token = new OAuthToken('access_token','access_token_secret');
 // Generate a new OAuth request. Supported methods include GET and POST.
@@ -104,7 +104,7 @@ class MySigner extends OAuthSignMethod
 {
 	// my code
 }
-$signer = new MySigner($consumer);
+$signer = new MySigner();
 $consumer = new OAuthConsumer($consumer_key,$signer);
 $consumer->request('GET','http://example.com/oauth',$params,null);
 ?>
