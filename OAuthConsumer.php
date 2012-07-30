@@ -242,7 +242,6 @@ class OAuthResponse
 abstract class OAuthSignMethod
 {
 	protected $name = '';
-	protected $consumer_secret;
 
 	public function name()
 	{
@@ -347,14 +346,12 @@ class OAuthSignMethod_RSA_SHA1 extends OAuthSignMethod
 	protected $private_cert_passphrase = "";
 
 	/**
-	*	Set the consumer's private key.
-	*
 	*	@param string $cert Either a PEM formatted private key or the path to one.
 	*	@param string $password The private key passphrase, if it has one.
 	*	@return void
 	*/
 
-	public function set_private_cert($cert, $passphrase = "")
+	public function __construct($cert,$passphrase = '')
 	{
 		$this->private_cert = $cert;
 		$this->private_cert_passphrase = $passphrase;

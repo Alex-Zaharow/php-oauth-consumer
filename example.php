@@ -161,8 +161,7 @@ cn1xOJAyZODBo47E+67R4jV1/gzbAkEAklJaspRPXP877NssM5nAZMU0/O/NGCZ+
 AO/0isr/3aa6O6NLQxISLKcPDk2NOccAfS/xOtfOz4sJYM3+Bs4Io9+dZGSDCA54
 Lw03eHTNQghS0A==
 -----END PRIVATE KEY-----';
-$signer = new OAuthSignMethod_RSA_SHA1();
-$signer->set_private_cert($private_cert);
+$signer = new OAuthSignMethod_RSA_SHA1($private_cert);
 $consumer = new OAuthConsumer($consumer_key,$signer);
 
 echo "<h3>Get Request Token</h3>";

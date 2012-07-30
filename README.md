@@ -38,10 +38,10 @@ $consumer_key = new OAuthKey($consumer_key,$consumer_secret);
 // Provide a signing method to use when sending requests. You can use Plaintext,
 // HMAC-SHA1, RSA-SHA1, or any other method the Provider supports that you 
 // impliment.
-$signer = new OAuthSignMethod_RSA_SHA1($consumer);
-// For RSA-SHA1, you must import a private certificate for encryption.
 $cert = '-----START PRIVATE KEY-----gaAnkjpS9803lkn....-----END PRIVATE KEY-----';
-$signer->set_private_cert($cert);
+// For RSA-SHA1, you must provide a private certificate for encryption.
+// This parameter should not be provided for HMAC-SHA1 or Plaintext.
+$signer = new OAuthSignMethod_RSA_SHA1($cert);
 
 // Create a new consumer object.
 $consumer = new OAuthConsumer($consumer_key,$signer);
