@@ -3,18 +3,17 @@
 require_once("OAuthConsumer.php");
 
 $end_point = 'http://term.ie/oauth/example';
-$method = 'POST';
-$consumer_key = 'key';
-$consumer_secret = 'secret';
 $params = array('file'=>'vacation.jpg', 'size'=>'original');
-$token = new OAuthToken('access-key','access_secret');
+$method = 'POST';
+$consumer_key = new OAuthKey('key','secret');
+$token = new OAuthKey('access-key','access_secret');
 
-echo "<h1>OAuth 1.0 Consumer</h1>";
+echo "<h1>OAuth 1.0 Consumer (RFC 5849)</h1>";
 echo "<p>Uses OAuth test server at http://term.ie/oauth/example/index.php</p>";
 echo "End Point: $end_point<br />";
 echo "Method: $method<br />";
-echo "Consumer Key: $consumer_key<br />";
-echo "Consumer Secret: $consumer_secret<br />";
+echo "Consumer Key: $consumer_key->key<br />";
+echo "Consumer Secret: $consumer_key->secret<br />";
 echo "Params: "; var_dump($params); echo "<br />";
 echo "Token: "; var_dump($token); echo "<br />";
 echo "<hr />";
@@ -25,30 +24,26 @@ echo "<hr />";
 
 echo "<h2>Plaintext Example</h2>";
 
-$consumer = new OAuthConsumer($consumer_key,$consumer_secret);
-$signer = new OAuthSignMethod_Plaintext($consumer);
+$signer = new OAuthSignMethod_Plaintext();
+$consumer = new OAuthConsumer($consumer_key,$signer);
 
 echo "<h3>Get Request Token</h3>";
 
 $request = $consumer->request($method,"$end_point/request_token.php",$params,null);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
 echo "Header: ",$response->header()."<br />";
-echo "Data: ".$response->data()."<br />";
+echo "Data: "; var_dump($response->data()); echo "<br />";
 echo "Type: ".$response->type()."<br />";
 
 // parse out request token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Get Access Token</h3>";
 
 $request = $consumer->request($method,"$end_point/access_token.php",$params,$token);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -58,13 +53,11 @@ echo "Type: ".$response->type()."<br />";
 
 // parse out access token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Authenticated Call</h3>";
 
 $request = $consumer->request($method,"$end_point/echo_api.php",$params,$token);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -91,14 +84,12 @@ echo "<hr />";
 
 echo "<h2>HMAC-SHA1 Example</h2>";
 
-$consumer = new OAuthConsumer($consumer_key,$consumer_secret);
-$signer = new OAuthSignMethod_HMAC_SHA1($consumer);
+$signer = new OAuthSignMethod_HMAC_SHA1();
+$consumer = new OAuthConsumer($consumer_key,$signer);
 
 echo "<h3>Get Request Token</h3>";
 
 $request = $consumer->request($method,"$end_point/request_token.php",$params,null);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -108,13 +99,11 @@ echo "Type: ".$response->type()."<br />";
 
 // parse out request token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Get Access Token</h3>";
 
 $request = $consumer->request($method,"$end_point/access_token.php",$params,$token);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -124,13 +113,11 @@ echo "Type: ".$response->type()."<br />";
 
 // parse out access token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Authenticated Call</h3>";
 
 $request = $consumer->request($method,"$end_point/echo_api.php",$params,$token);
-// plaintext is the default signing method and so can be skipped
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -174,14 +161,13 @@ cn1xOJAyZODBo47E+67R4jV1/gzbAkEAklJaspRPXP877NssM5nAZMU0/O/NGCZ+
 AO/0isr/3aa6O6NLQxISLKcPDk2NOccAfS/xOtfOz4sJYM3+Bs4Io9+dZGSDCA54
 Lw03eHTNQghS0A==
 -----END PRIVATE KEY-----';
-$consumer = new OAuthConsumer($consumer_key,$consumer_secret);
-$signer = new OAuthSignMethod_RSA_SHA1($consumer);
+$signer = new OAuthSignMethod_RSA_SHA1();
 $signer->set_private_cert($private_cert);
+$consumer = new OAuthConsumer($consumer_key,$signer);
 
 echo "<h3>Get Request Token</h3>";
 
 $request = $consumer->request($method,"$end_point/request_token.php",$params,null);
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -191,12 +177,11 @@ echo "Type: ".$response->type()."<br />";
 
 // parse out request token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Get Access Token</h3>";
 
 $request = $consumer->request($method,"$end_point/access_token.php",$params,$token);
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
@@ -206,12 +191,11 @@ echo "Type: ".$response->type()."<br />";
 
 // parse out access token
 $result = OAuthHelper::param_decode($response->data());
-$token = new OAuthToken($result['oauth_token'],$result['oauth_token_secret']);
+$token = new OAuthKey($result['oauth_token'],$result['oauth_token_secret']);
 
 echo "<h3>Authenticated Call</h3>";
 
 $request = $consumer->request($method,"$end_point/echo_api.php",$params,$token);
-$request->sign($signer);
 $response = $request->send();
 
 echo "Status: ".$response->code()."<br />";
