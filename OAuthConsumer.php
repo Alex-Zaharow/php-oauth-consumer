@@ -1,11 +1,16 @@
 <?php
 
-/*
+/**
+*	PHP OAUTH 1.0 CONSUMER
+*
 *	Compliant with OAuth 1.0 Spec (RFC 5849)
 *	https://tools.ietf.org/html/rfc5849
-*/
-
-/**
+*
+*	@version 1.0
+*	@author Matthew Colf <mattcolf@mattcolf.com>
+*
+*	@section LICENSE	
+*
 *	Copyright 2012 Matthew Colf <mattcolf@mattcolf.com>
 *
 *	Licensed under the Apache License, Version 2.0 (the "License");
