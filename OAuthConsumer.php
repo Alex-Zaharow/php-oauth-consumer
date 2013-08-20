@@ -37,7 +37,7 @@
 *	OAuth Consumer Object
 */
 
-require_once 'HTTP/Request2';
+require_once 'HTTP/Request2.php';
 
 class OAuthConsumer
 {
