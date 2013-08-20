@@ -212,7 +212,7 @@ class OAuthResponse
 
 	public function __construct($raw,$code,$header,$data,$type)
 	{
-		$thos->raw = $raw;
+		$this->raw = $raw;
 		$this->code = $code;
 		$this->header = $header;
 		$this->data = $data;
