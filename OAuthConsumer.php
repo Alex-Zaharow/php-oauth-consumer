@@ -37,6 +37,8 @@
 *	OAuth Consumer Object
 */
 
+require_once 'HTTP/Request2';
+
 class OAuthConsumer
 {
 	protected $sender;
@@ -751,3 +753,72 @@ class OAuthHelper
 	}
 
 }
+
+// Second OAuthSender implementation with HTTP_Request2:
+class OAuthHttpSender2 implements OAuthSender
+{
+        protected $r;
+
+        public function __construct()
+        {
+            $this->r = new HTTP_Request2();
+        }
+
+        public function __destruct()
+        {
+        }
+
+        /**
+        *       Send a new HTTP request.
+        *
+        *       @param string $url The url to transport to.
+        *       @param string $method The method to use ('GET' or 'POST')
+        *       @param string $params The parameters to send.
+        *       @param string $headers The headers to include when sending.
+        *       @return OAuthResponse The sender output.
+        */
+
+        public function request($method, $url, $params = null, $header = null)
+        {
+            $this->r->setMethod($method);
+            $this->r->setUrl($url);
+
+            $this->r->setConfig( array(
+                                'ssl_verify_peer'   =>  false,
+                                'ssl_verify_host'   =>  false,
+                                )
+                        );
+
+                switch($method)
+                {
+                        case "GET":
+                                $this->r->setUrl($url.'?'.$params);
+                                $this->r->setHeader(array($header));
+                                break;
+                        case "POST":
+                                $this->r->setHeader(array($header));
+                                $this->r->addPostParameter($params);
+                                break;
+                        default:
+                                throw new OAuthException("Invalid HTTP method '$method'.");
+                }
+                $response = $this->r->send();
+                $code = $response->getStatus();
+                $header = $response->getHeader();
+                $data = $response->getBody();
+                $raw = $response->getBody();
+                $type = $response->getHeader('content-type');
+
+                return new OAuthResponse($raw,$code,$header,$data,$type);
+        }
+
+        /**
+        *       Errors check not here.
+        */
+
+        public function error()
+        {
+            return '';
+        }
+}
+
