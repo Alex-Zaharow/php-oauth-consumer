@@ -14,6 +14,7 @@ Features
   you can start working right away.
 - Supports custom user implimented sender.
 - Supports two-legged OAuth with no additional code.
+- Support HTTP_Request2 (pear install Request2)
 
 Requirements
 ------------
